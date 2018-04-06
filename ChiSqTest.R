@@ -1,7 +1,7 @@
 # LunchinatoRs April 6, 2018
 # Erica Baken
 
-setwd("~/Documents/School/Presentations/Lunchinators April 6 2018")
+setwd("~/Documents/School/Presentations/2018 LunchinatoR")
 library(phytools)
 library(stringr)
 
@@ -12,13 +12,10 @@ MajRule <- read.csv("MajRuleAveragesClass3.csv") # This is calculated over the 1
 
 # Modify data to the right format 
 BB$tip.label <- str_replace_all(BB$tip.label, "[[:punct:]]"," ") 
+rownames(MajRule) <- MajRule[,1] 
+  MajRule <- MajRule[,-1]
 Class3 <- Habitats$Class3
   names(Class3) <- Habitats$Species    
-
-Info <- summary(Class3) 
-      
-rownames(MajRule) <- MajRule[,1] 
-MajRule <- MajRule[,-1]
       
 # Calculating Null Expected
         # This method is taking all known transitions and evenly distributing them
@@ -26,26 +23,34 @@ MajRule <- MajRule[,-1]
         # have an inherently higher chance of transitioning out of that microhabitat just 
         # because there are more of them
 
-DeltaTot <- sum(na.omit(unlist(MajRule))) # Adding up all transitions according to MajRule = 90.331
-n <- 332 # Number of species
-m <- 5 # Number of microhabitat types
-nx <- Info
-    
-      Deltaxy <- matrix(NA, nrow = 5, ncol = 5)
-      for (i in 1:5){ Deltaxy[i,] <- (DeltaTot*nx[i]/n)/(m-1) }
-      diag(Deltaxy) <- 0
-      rownames(Deltaxy) <- colnames(Deltaxy) <- names(nx)
-      Deltaxy
-    
+sums <- apply(MajRule, 1, function(x){
+  sum(na.omit(x))
+})
+
+
+Deltaxy <- matrix(NA, nrow = 5, ncol = 4)
+
+for (i in 1:length(sums)){
+x<- summary(Class3)[-i]
+Deltaxy[i,] <- sums[i]*(x/sum(x))
+}
+
+MajRule2 <- t(apply(MajRule,1,function(x){na.omit(x)}))
+
 # Chi Square Tests
     # Overall Differences
-    chi2 <- sum(na.omit(as.vector((MajRules- Deltaxy)^2/Deltaxy))) # for each cell, (Expected - Observed)^2/Expected 
-    pchisq(chi2, df = 16, lower.tail = F) # df = (r-1)(c-1); p = 1.258 X 10^-7
+    round((MajRule2- Deltaxy)/sqrt(Deltaxy), 2)
+    chi2 <- sum(na.omit(as.vector((MajRule2- Deltaxy)^2/Deltaxy))) # for each cell, (Expected - Observed)^2/Expected 
+    pchisq(chi2, df = 15, lower.tail = F) # df = 20 - 5; p = 1.258 X 10^-7
     
-    # Transitions TO Arboreality
-    chi2 <- sum((MajRules[-1,1] - Deltaxy[-1,1])^2/ Deltaxy[-1,1])
-    pchisq(chi2, df = 3, lower.tail = F) # p = 8.759 X 10-8
+    # Transitions TO Arboreality 
+    ToA <- MajRule[-1,1]
+    ToANull <- Deltaxy[-1,1]
+    chi2 <- sum((ToA - ToANull)^2/ToANull)
+    pchisq(chi2, df = 3, lower.tail = F) # p = 0.43
     
     # Transitions FROM Arboreality
-    chi2 <- sum((MajRules[1,-1] - Deltaxy[1,-1])^2/ Deltaxy[1,-1])
-    pchisq(chi2, df = 3, lower.tail = F) # p = 0.009
+    FromA <- MajRule2[1,]
+    FromANull <- Deltaxy[1,]
+    chi2 <- sum((FromA - FromANull)^2/ FromANull)
+    pchisq(chi2, df = 3, lower.tail = F) # p = 0.35
